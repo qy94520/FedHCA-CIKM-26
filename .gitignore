@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+outputs/
+data/
+*.pth
+*.pt
+*.pkl
+*.npz
+*.mat
+*.zip
+*.tar.gz
+logs/
