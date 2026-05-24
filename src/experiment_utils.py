@@ -87,13 +87,13 @@ def infer_experiment_identity(*, method: str, server_ablation: str='full', async
     method_name = str(method)
     if bool(profile_overhead):
         return ('overhead', 'profile')
-    if method_name == 'FedHCCA' and ('--server_ablation' in flags or str(server_ablation).strip().lower() != 'full'):
+    if method_name == 'FedHCA' and ('--server_ablation' in flags or str(server_ablation).strip().lower() != 'full'):
         return ('server_ablation', str(server_ablation))
     if '--async_timing_mode' in flags or str(async_timing_mode).strip().lower() != 'fixed_default':
         return ('async_timing', str(async_timing_mode))
     if '--exposure_mode' in flags or str(exposure_mode).strip().lower() != 'exponential':
         return ('exposure', str(exposure_mode))
-    if method_name == 'FedHCCA' and ('--proto_noise_sigma' in flags or float(proto_noise_sigma) > 0.0):
+    if method_name == 'FedHCA' and ('--proto_noise_sigma' in flags or float(proto_noise_sigma) > 0.0):
         return ('proto_noise', f'sigma_{float(proto_noise_sigma):.2f}')
     return ('main', 'default')
 

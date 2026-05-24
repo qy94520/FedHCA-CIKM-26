@@ -51,10 +51,10 @@ def freeze_bn_layers(model):
             for p in m.parameters():
                 p.requires_grad = False
 
-class FedHCCA_model:
+class FedHCA_model:
 
     def __init__(self, init_classes, feature_extractor, batch_size, task_size, memory_size, epochs, learning_rate, train_set, test_set, device, exemplar_per_class: int=20):
-        super(FedHCCA_model, self).__init__()
+        super(FedHCA_model, self).__init__()
         self.local_epochs = epochs
         self.learning_rate = learning_rate
         self.model = network(init_classes, feature_extractor)

@@ -1,4 +1,4 @@
-from FedHCCA import FedHCCA_model
+from FedHCA import FedHCA_model
 from ResNet import resnet18_cbam
 from backbone_factory import build_backbone, normalize_backbone_name
 import torch
@@ -11,7 +11,7 @@ import glog as logger
 import time
 from myNetwork import *
 from Fed_utils import *
-from FedHCCA import *
+from FedHCA import *
 from option import args_parser
 from iCIFAR100 import iCIFAR100, iCIFAR10, iSVHN
 import pickle
@@ -19,11 +19,11 @@ from experiment_utils import append_pattern_record, build_async_exposure_rounds,
 args = args_parser()
 method = args.method
 date = args.date
-if method == 'FedHCCA':
+if method == 'FedHCA':
     _filename = '_final'
 else:
     _filename = 'base'
-METHOD_PROFILES = {'FedHCCA': dict(aggregator='fedhcca', IL='fedhcca'), 'FedAvg': dict(aggregator='fedavg', IL=None), 'FedProx': dict(aggregator='fedprox', IL=None), 'FedAvg_PODNet': dict(aggregator='fedavg', IL='PODNet'), 'FedProx_PODNet': dict(aggregator='fedprox', IL='PODNet'), 'FedProx_iCaRL': dict(aggregator='fedprox', IL='iCaRL'), 'FedAvg_iCaRL': dict(aggregator='fedavg', IL='iCaRL'), 'FedProx_EWC': dict(aggregator='fedprox', IL='EWC'), 'FedAvg_EWC': dict(aggregator='fedavg', IL='EWC')}
+METHOD_PROFILES = {'FedHCA': dict(aggregator='fedhca', IL='fedhca'), 'FedAvg': dict(aggregator='fedavg', IL=None), 'FedProx': dict(aggregator='fedprox', IL=None), 'FedAvg_PODNet': dict(aggregator='fedavg', IL='PODNet'), 'FedProx_PODNet': dict(aggregator='fedprox', IL='PODNet'), 'FedProx_iCaRL': dict(aggregator='fedprox', IL='iCaRL'), 'FedAvg_iCaRL': dict(aggregator='fedavg', IL='iCaRL'), 'FedProx_EWC': dict(aggregator='fedprox', IL='EWC'), 'FedAvg_EWC': dict(aggregator='fedavg', IL='EWC')}
 prof = METHOD_PROFILES[args.method]
 aggregator = prof['aggregator']
 IL_method = prof['IL']
@@ -43,7 +43,7 @@ logger.info(f'Using device: {device}')
 models = []
 dataset_name = str(args.dataset).lower()
 if int(args.task_size) != 1:
-    logger.warning('Current FedHCCA fl_main assumes 1 class per task; got task_size=%d. ', int(args.task_size))
+    logger.warning('Current FedHCA fl_main assumes 1 class per task; got task_size=%d. ', int(args.task_size))
 
 def _get_dataset_cfg(name: str):
     n = str(name).lower()
@@ -76,13 +76,13 @@ if incre_tasks < 0 or incre_tasks > max_incre:
     raise ValueError(f'Invalid incre_tasks={incre_tasks}: dataset={dataset_name} has {num_total_classes} classes, baseclass={base_numclass} => max_incre={max_incre}')
 task_name = f'incre_class{incre_tasks}' if dataset_name == 'cifar100' else f'{dataset_name}_incre_class{incre_tasks}'
 logger.info('Dataset=%s total_classes=%d baseclass=%d incre_tasks=%d', dataset_name, num_total_classes, int(base_numclass), int(incre_tasks))
-if method != 'FedHCCA' and str(getattr(args, 'server_ablation', 'full')).strip().lower() != 'full':
-    logger.warning('--server_ablation only affects method=FedHCCA; current method=%s so it will be ignored.', method)
-if method != 'FedHCCA' and float(getattr(args, 'proto_noise_sigma', 0.0)) > 0.0:
-    logger.warning('--proto_noise_sigma only affects method=FedHCCA; current method=%s so it will be ignored.', method)
+if method != 'FedHCA' and str(getattr(args, 'server_ablation', 'full')).strip().lower() != 'full':
+    logger.warning('--server_ablation only affects method=FedHCA; current method=%s so it will be ignored.', method)
+if method != 'FedHCA' and float(getattr(args, 'proto_noise_sigma', 0.0)) > 0.0:
+    logger.warning('--proto_noise_sigma only affects method=FedHCA; current method=%s so it will be ignored.', method)
 profile_overhead_enabled = bool(int(getattr(args, 'profile_overhead', 0)))
-if profile_overhead_enabled and (not (dataset_name == 'cifar100' and method in {'FedHCCA', 'FedAvg'})):
-    logger.warning('--profile_overhead currently supports only CIFAR-100 FedHCCA/FedAvg runs; disabling for dataset=%s method=%s.', dataset_name, method)
+if profile_overhead_enabled and (not (dataset_name == 'cifar100' and method in {'FedHCA', 'FedAvg'})):
+    logger.warning('--profile_overhead currently supports only CIFAR-100 FedHCA/FedAvg runs; disabling for dataset=%s method=%s.', dataset_name, method)
     profile_overhead_enabled = False
 exp_type, exp_variant = infer_experiment_identity(method=method, server_ablation=str(getattr(args, 'server_ablation', 'full')), async_timing_mode=str(getattr(args, 'async_timing_mode', 'fixed_default')), exposure_mode=str(getattr(args, 'exposure_mode', 'exponential')), proto_noise_sigma=float(getattr(args, 'proto_noise_sigma', 0.0)), profile_overhead=profile_overhead_enabled, cli_flags=getattr(args, 'cli_flags', []))
 if exp_type == 'proto_noise':
@@ -167,7 +167,7 @@ backbone_name = normalize_backbone_name(getattr(args, 'backbone', 'resnet18'))
 base_backbone = build_backbone(backbone_name, img_size=int(getattr(args, 'img_size', 32)))
 logger.info('Backbone robustness setting | backbone=%s', backbone_name)
 feature_extractor_g = copy.deepcopy(base_backbone)
-model_g = FedHCCA_model(base_numclass, feature_extractor_g, args.batch_size, args.task_size, args.memory_size, args.epochs_local, args.learning_rate, train_dataset, test_dataset, args.device, exemplar_per_class=getattr(args, 'exemplar_per_class', 20))
+model_g = FedHCA_model(base_numclass, feature_extractor_g, args.batch_size, args.task_size, args.memory_size, args.epochs_local, args.learning_rate, train_dataset, test_dataset, args.device, exemplar_per_class=getattr(args, 'exemplar_per_class', 20))
 model_g.model = model_g.model.to(device)
 default_base_model_path = ''
 if backbone_name == 'resnet18':
@@ -197,7 +197,7 @@ for client_id in range(num_clients):
     g_client.manual_seed(seed + client_id)
     feature_extractor_i = copy.deepcopy(base_backbone)
     client_dataset_temp = train_dataset.getTrainItem_indices(base_data_indices['client_data_indices'][client_id])
-    model_temp = FedHCCA_model(args.baseclass, feature_extractor_i, args.batch_size, args.task_size, args.memory_size, args.epochs_local, args.learning_rate, client_dataset_temp, test_dataset, args.device, exemplar_per_class=getattr(args, 'exemplar_per_class', 20))
+    model_temp = FedHCA_model(args.baseclass, feature_extractor_i, args.batch_size, args.task_size, args.memory_size, args.epochs_local, args.learning_rate, client_dataset_temp, test_dataset, args.device, exemplar_per_class=getattr(args, 'exemplar_per_class', 20))
     model_temp.current_class = args.baseclass - 1
     model_temp.last_class = args.baseclass - 1
     model_temp.recent_full_class = 0
@@ -243,7 +243,7 @@ log_str = 'task_{}, global_rounds_{}, local_epochs_{}'.format(task_name, global_
 out_file.write(log_str + '\n')
 out_file.flush()
 if dataset_name == 'cifar100':
-    if method == 'FedHCCA':
+    if method == 'FedHCA':
         csv_path_acc_global = f'./outputs/csv/incre/{date}_{dataset_name}{_filename}_incre{incre_tasks}_acc_global.csv'
         csv_path_acc_taskwise = f'./outputs/csv/incre/{date}_{dataset_name}{_filename}_incre{incre_tasks}_acc_taskwise.csv'
     else:
@@ -289,15 +289,15 @@ if async_timing_enabled:
     init_pattern_csv(output_ctx['pattern_csv'])
     logger.info('Async timing robustness enabled | mode=%s desc=%s pattern_csv=%s', async_timing_mode, async_timing_desc, output_ctx['pattern_csv'])
 task_exposure_rounds = list(exposure_rounds)
-fedhcca_task_best_new_weight = 0.5
+fedhca_task_best_new_weight = 0.5
 if dataset_name == 'isic2019':
-    fedhcca_task_best_new_weight = 0.1
+    fedhca_task_best_new_weight = 0.1
 task_best = {'score': float('-inf'), 'round': None, 'acc_all': None, 'acc_new': None, 'acc_old': None, 'state': None}
-rowbank_enable = method == 'FedHCCA' and bool(int(getattr(args, 'fedhcca_rowbank_final_restore', 0)))
+rowbank_enable = method == 'FedHCA' and bool(int(getattr(args, 'fedhca_rowbank_final_restore', 0)))
 rowbank = {}
-task_restore_enable = method == 'FedHCCA' and bool(int(getattr(args, 'fedhcca_taskwise_restore', 0)))
-task_restore_ratio = float(getattr(args, 'fedhcca_taskwise_restore_ratio', 0.7))
-task_restore_threshold = float(getattr(args, 'fedhcca_taskwise_restore_threshold', 20.0))
+task_restore_enable = method == 'FedHCA' and bool(int(getattr(args, 'fedhca_taskwise_restore', 0)))
+task_restore_ratio = float(getattr(args, 'fedhca_taskwise_restore_ratio', 0.7))
+task_restore_threshold = float(getattr(args, 'fedhca_taskwise_restore_threshold', 20.0))
 csv_path_taskrestore_global = None
 csv_path_taskrestore_taskwise = None
 if task_restore_enable:
@@ -310,11 +310,11 @@ if task_restore_enable:
         with open(csv_path_taskrestore_taskwise, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(['round', 'task_id', 'restored_classes'] + name_str_list)
-        logger.info(f'[FedHCCA][TaskRestore] post-restore CSV enabled: {csv_path_taskrestore_global}')
+        logger.info(f'[FedHCA][TaskRestore] post-restore CSV enabled: {csv_path_taskrestore_global}')
     except Exception as e:
-        logger.warning(f'[FedHCCA][TaskRestore] failed to init taskrestore CSV: {e}')
-task_restore_beta_min = float(getattr(args, 'fedhcca_taskwise_restore_beta_min', 0.3))
-task_restore_beta_max = float(getattr(args, 'fedhcca_taskwise_restore_beta_max', 0.7))
+        logger.warning(f'[FedHCA][TaskRestore] failed to init taskrestore CSV: {e}')
+task_restore_beta_min = float(getattr(args, 'fedhca_taskwise_restore_beta_min', 0.3))
+task_restore_beta_max = float(getattr(args, 'fedhca_taskwise_restore_beta_max', 0.7))
 best_row_cache = {}
 new_client_num = int(getattr(args, 'new_client_num', 4))
 ewc_pack = {'params': None, 'fisher': None}
@@ -392,7 +392,7 @@ for global_round in range(global_rounds):
     prev_global_prototypes = copy.deepcopy(global_prototypes)
     server_client_prototypes = client_prototypes
     proto_noise_sigma = 0.0
-    if method == 'FedHCCA':
+    if method == 'FedHCA':
         proto_noise_sigma = float(getattr(args, 'proto_noise_sigma', 0.0))
         server_client_prototypes = build_noisy_uploaded_prototypes(client_prototypes=client_prototypes, sigma=proto_noise_sigma, seed=int(args.seed), global_round=int(global_round), target_labels=[class_id])
         if proto_noise_sigma > 0.0:
@@ -413,7 +413,7 @@ for global_round in range(global_rounds):
     new_support_list = [models[cid].new_support for cid in range(num_clients)]
     if profile_overhead_enabled:
         comm_model_only_bytes = estimate_model_upload_nbytes(w_local)
-        if aggregator == 'fedhcca' and (not ablate_server_fedavg):
+        if aggregator == 'fedhca' and (not ablate_server_fedavg):
             proto_bytes, meta_bytes = estimate_proto_meta_upload_nbytes(server_client_prototypes, client_weights, target_labels=[class_id], include_support_flags=True)
             comm_extra_bytes = int(proto_bytes + meta_bytes)
         else:
@@ -421,7 +421,7 @@ for global_round in range(global_rounds):
         overhead_profile['comm_model_only_bytes'].append(int(comm_model_only_bytes))
         overhead_profile['comm_extra_proto_meta_bytes'].append(int(comm_extra_bytes))
         overhead_profile['comm_total_bytes'].append(int(comm_model_only_bytes + comm_extra_bytes))
-    if aggregator != 'fedhcca' or ablate_server_fedavg:
+    if aggregator != 'fedhca' or ablate_server_fedavg:
         server_time_start = time.perf_counter()
         w_g_new = FedAvg(w_local)
         server_time_elapsed = time.perf_counter() - server_time_start
@@ -470,7 +470,7 @@ for global_round in range(global_rounds):
                     if best is None or acc_c >= float(best.get('acc', -1.0)):
                         rowbank[int(cid)] = {'acc': acc_c, 'round': int(global_round + 1), 'w': sd[Wk][int(cid)].detach().cpu().clone(), 'b': sd[bk][int(cid)].detach().cpu().clone()}
         except Exception as e:
-            logger.warning(f'[FedHCCA][RowBank] update failed: {e}')
+            logger.warning(f'[FedHCA][RowBank] update failed: {e}')
     if task_restore_enable:
         try:
             sd = model_g.model.state_dict()
@@ -485,10 +485,10 @@ for global_round in range(global_rounds):
                     if best is None or acc_c >= float(best.get('acc', -1.0)):
                         best_row_cache[int(cid)] = {'acc': acc_c, 'round': int(global_round + 1), 'w': sd[Wk][int(cid)].detach().cpu().clone(), 'b': sd[bk][int(cid)].detach().cpu().clone()}
         except Exception as e:
-            logger.warning(f'[FedHCCA][TaskRestore] cache update failed: {e}')
-    if method == 'FedHCCA':
+            logger.warning(f'[FedHCA][TaskRestore] cache update failed: {e}')
+    if method == 'FedHCA':
         try:
-            score = float(acc_global['acc_all']) + float(fedhcca_task_best_new_weight) * float(acc_global['acc_new'])
+            score = float(acc_global['acc_all']) + float(fedhca_task_best_new_weight) * float(acc_global['acc_new'])
         except Exception:
             score = float(acc_global['acc_all'])
         if score >= task_best['score']:
@@ -513,17 +513,17 @@ for global_round in range(global_rounds):
             row_data.append(f'{acc_taskwise[f'incre_{i}']:.2f}')
         writer.writerow(row_data)
     if global_round % task_global_round == task_global_round - 1:
-        if method == 'FedHCCA' and task_best.get('state') is not None:
+        if method == 'FedHCA' and task_best.get('state') is not None:
             model_g.model.load_state_dict(task_best['state'], strict=True)
             acc_temp = task_best.get('acc_all', acc_global['acc_all'])
-            logger.info('[FedHCCA] Restore task-best model at round=%s: acc_all=%.2f acc_new=%.2f acc_old=%.2f score=%.2f', str(task_best.get('round')), float(task_best.get('acc_all', 0.0)), float(task_best.get('acc_new', 0.0)), float(task_best.get('acc_old', 0.0)), float(task_best.get('score', 0.0)))
+            logger.info('[FedHCA] Restore task-best model at round=%s: acc_all=%.2f acc_new=%.2f acc_old=%.2f score=%.2f', str(task_best.get('round')), float(task_best.get('acc_all', 0.0)), float(task_best.get('acc_new', 0.0)), float(task_best.get('acc_old', 0.0)), float(task_best.get('score', 0.0)))
         else:
             acc_temp = acc_global['acc_all']
         if dataset_name == 'cifar100':
-            if aggregator != 'fedhcca':
+            if aggregator != 'fedhca':
                 save_dir = './outputs/model/compare'
             else:
-                save_dir = './outputs/model/fedhcca'
+                save_dir = './outputs/model/fedhca'
         else:
             save_dir = osp.join('./outputs/model/system', dataset_name) if is_medical else f'./outputs/model/{dataset_name}'
         save_path = osp.join(save_dir, f'{date}_{method}{_filename}_round{global_round + 1}_best_model_{int(acc_temp * 100)}.pth')
@@ -572,16 +572,16 @@ for global_round in range(global_rounds):
                     restored_classes_n = int(len(restored))
                     if restored_classes_n > 0:
                         model_g.model.load_state_dict(sd, strict=True)
-                        logger.info(f'[FedHCCA][TaskRestore][TaskEnd{task_id}] restored_classes={restored_classes_n}')
-                        logger.info(f'[FedHCCA][TaskRestore][TaskEnd{task_id}] restored={restored[:20]}')
+                        logger.info(f'[FedHCA][TaskRestore][TaskEnd{task_id}] restored_classes={restored_classes_n}')
+                        logger.info(f'[FedHCA][TaskRestore][TaskEnd{task_id}] restored={restored[:20]}')
                         model_old[1] = copy.deepcopy(model_g.model)
             except Exception as e:
-                logger.warning(f'[FedHCCA][TaskRestore] task-boundary restore failed: {e}')
+                logger.warning(f'[FedHCA][TaskRestore] task-boundary restore failed: {e}')
         if task_restore_enable and csv_path_taskrestore_global is not None and (csv_path_taskrestore_taskwise is not None):
             try:
                 acc_global_fix = model_eval(model_g.model, test_dataset, total_classes, model_g.device)
                 acc_taskwise_fix = model_eval_class(model_g.model, test_dataset, base_numclass, total_classes, model_g.device)
-                logger.info(f'[FedHCCA][TaskRestore][TaskEnd{task_id}] post_eval acc_all={acc_global_fix['acc_all']:.2f} restored_classes={restored_classes_n}')
+                logger.info(f'[FedHCA][TaskRestore][TaskEnd{task_id}] post_eval acc_all={acc_global_fix['acc_all']:.2f} restored_classes={restored_classes_n}')
                 with open(csv_path_taskrestore_global, 'a', newline='') as f:
                     writer = csv.writer(f)
                     writer.writerow([int(global_round + 1), int(task_id), int(restored_classes_n), f'{acc_global_fix['acc_all']:.2f}', f'{acc_global_fix['acc_new']:.2f}', f'{acc_global_fix['acc_old']:.2f}'])
@@ -593,7 +593,7 @@ for global_round in range(global_rounds):
                         row_data.append(f'{acc_taskwise_fix[f'incre_{i}']:.2f}')
                     writer.writerow(row_data)
             except Exception as e:
-                logger.warning(f'[FedHCCA][TaskRestore] failed to write post-restore CSV at task end: {e}')
+                logger.warning(f'[FedHCA][TaskRestore] failed to write post-restore CSV at task end: {e}')
 if rowbank_enable and len(rowbank) > 0:
     try:
         sd = model_g.model.state_dict()
@@ -608,18 +608,18 @@ if rowbank_enable and len(rowbank) > 0:
             sd[bk][int(cid)] = item['b'].to(sd[bk].device, dtype=sd[bk].dtype)
             restored += 1
         model_g.model.load_state_dict(sd, strict=True)
-        logger.info(f'[FedHCCA][RowBank] Final restore applied: restored_rows={restored}')
+        logger.info(f'[FedHCA][RowBank] Final restore applied: restored_rows={restored}')
         acc_global_rb = model_eval(model_g.model, test_dataset, total_classes, model_g.device)
         acc_taskwise_rb = model_eval_class(model_g.model, test_dataset, base_numclass, total_classes, model_g.device)
-        logger.info(f'[FedHCCA][RowBank] Final acc_global: {acc_global_rb}')
+        logger.info(f'[FedHCA][RowBank] Final acc_global: {acc_global_rb}')
         if dataset_name == 'cifar100':
-            save_dir = './outputs/model/fedhcca' if aggregator == 'fedhcca' else './outputs/model/compare'
+            save_dir = './outputs/model/fedhca' if aggregator == 'fedhca' else './outputs/model/compare'
         else:
             save_dir = osp.join('./outputs/model/system', dataset_name) if is_medical else f'./outputs/model/{dataset_name}'
         os.makedirs(save_dir, exist_ok=True)
         save_path_rb = osp.join(save_dir, f'{date}_{method}{_filename}_rowbankfinal_round{global_rounds}_acc{int(float(acc_global_rb['acc_all']) * 100)}.pth')
         torch.save(model_g.model.state_dict(), save_path_rb)
-        logger.info(f'[FedHCCA][RowBank] Final model saved: {save_path_rb}')
+        logger.info(f'[FedHCA][RowBank] Final model saved: {save_path_rb}')
         csv_path_rb_global = csv_path_acc_global.replace('.csv', '_rowbankfinal.csv')
         csv_path_rb_task = csv_path_acc_taskwise.replace('.csv', '_rowbankfinal.csv')
         with open(csv_path_rb_global, 'w', newline='') as f:
@@ -635,7 +635,7 @@ if rowbank_enable and len(rowbank) > 0:
                 row_data.append(f'{acc_taskwise_rb[f'incre_{i}']:.2f}')
             writer.writerow(row_data)
     except Exception as e:
-        logger.warning(f'[FedHCCA][RowBank] Final restore failed: {e}')
+        logger.warning(f'[FedHCA][RowBank] Final restore failed: {e}')
 overhead_summary = None
 if profile_overhead_enabled:
     comm_model_only = int(sum(overhead_profile['comm_model_only_bytes']))

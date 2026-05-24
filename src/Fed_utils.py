@@ -53,7 +53,7 @@ def _ensure_sgd_and_set_lr(client, lr):
         for pg in client.optimizer.param_groups:
             pg['lr'] = lr
 
-def _ensure_sgd_fedhcca_grouped(client, lr_head: float, lr_backbone: float):
+def _ensure_sgd_fedhca_grouped(client, lr_head: float, lr_backbone: float):
     lr_head = float(lr_head)
     lr_backbone = float(lr_backbone)
     feature_params = []
@@ -70,7 +70,7 @@ def _ensure_sgd_fedhcca_grouped(client, lr_head: float, lr_backbone: float):
     if len(param_groups) == 0:
         all_params = [p for p in client.model.parameters()]
         param_groups = [{'params': all_params, 'lr': lr_head, 'name': 'all'}]
-    need_rebuild = client.optimizer is None or not bool(getattr(client, '_fedhcca_opt_grouped', False))
+    need_rebuild = client.optimizer is None or not bool(getattr(client, '_fedhca_opt_grouped', False))
     if not need_rebuild:
         try:
             cur_names = [pg.get('name', None) for pg in client.optimizer.param_groups]
@@ -81,7 +81,7 @@ def _ensure_sgd_fedhcca_grouped(client, lr_head: float, lr_backbone: float):
             need_rebuild = True
     if need_rebuild:
         client.optimizer = optim.SGD(param_groups, momentum=0.9, weight_decay=0.0005)
-        client._fedhcca_opt_grouped = True
+        client._fedhca_opt_grouped = True
     else:
         for pg in client.optimizer.param_groups:
             nm = pg.get('name', '')
@@ -242,17 +242,17 @@ def local_train(clients, client_id, class_id, model_old, global_round, task_glob
         if task_has_new_data:
             clients[client_id].new_support = True
     ablate_local_plain_train = bool(int(getattr(args, 'ablate_local_plain_train', 0)))
-    enable_fedhcca_tweaks = aggregator == 'fedhcca' and getattr(args, 'method', None) == 'FedHCCA' and (not ablate_local_plain_train)
-    balance_sampler = enable_fedhcca_tweaks and bool(int(getattr(args, 'balance_sampler', 1)))
-    new_class_boost = float(getattr(args, 'new_class_boost', 2.0)) if enable_fedhcca_tweaks else 1.0
-    sampler_early_rounds = int(getattr(args, 'fedhcca_sampler_early_rounds', -1)) if enable_fedhcca_tweaks else -1
+    enable_fedhca_tweaks = aggregator == 'fedhca' and getattr(args, 'method', None) == 'FedHCA' and (not ablate_local_plain_train)
+    balance_sampler = enable_fedhca_tweaks and bool(int(getattr(args, 'balance_sampler', 1)))
+    new_class_boost = float(getattr(args, 'new_class_boost', 2.0)) if enable_fedhca_tweaks else 1.0
+    sampler_early_rounds = int(getattr(args, 'fedhca_sampler_early_rounds', -1)) if enable_fedhca_tweaks else -1
     is_exposed_train = task_has_new_data and expo <= t <= expo + 3
-    policy = str(getattr(args, 'fedhcca_backbone_policy', 'legacy')).lower()
-    lowlr_scale = float(getattr(args, 'fedhcca_backbone_lowlr_scale', 0.05))
-    freeze_mode = str(getattr(args, 'fedhcca_freeze_backbone', 'none')).lower()
+    policy = str(getattr(args, 'fedhca_backbone_policy', 'legacy')).lower()
+    lowlr_scale = float(getattr(args, 'fedhca_backbone_lowlr_scale', 0.05))
+    freeze_mode = str(getattr(args, 'fedhca_freeze_backbone', 'none')).lower()
     freeze_backbone = False
     use_backbone_lowlr = False
-    if not enable_fedhcca_tweaks:
+    if not enable_fedhca_tweaks:
         freeze_backbone = False
     elif policy == 'all_freeze':
         freeze_backbone = True
@@ -276,7 +276,7 @@ def local_train(clients, client_id, class_id, model_old, global_round, task_glob
     else:
         freeze_backbone = True
         use_backbone_lowlr = False
-    if enable_fedhcca_tweaks and hasattr(clients[client_id].model, 'feature') and hasattr(clients[client_id].model, 'fc'):
+    if enable_fedhca_tweaks and hasattr(clients[client_id].model, 'feature') and hasattr(clients[client_id].model, 'fc'):
         for p in clients[client_id].model.fc.parameters():
             p.requires_grad = True
         if freeze_backbone:
@@ -285,12 +285,12 @@ def local_train(clients, client_id, class_id, model_old, global_round, task_glob
         else:
             for p in clients[client_id].model.feature.parameters():
                 p.requires_grad = True
-        prev_key = getattr(clients[client_id], '_fedhcca_backbone_key', None)
+        prev_key = getattr(clients[client_id], '_fedhca_backbone_key', None)
         key = (bool(freeze_backbone), bool(use_backbone_lowlr))
         if prev_key is None or prev_key != key:
             clients[client_id].optimizer = None
-            setattr(clients[client_id], '_fedhcca_opt_grouped', False)
-        clients[client_id]._fedhcca_backbone_key = key
+            setattr(clients[client_id], '_fedhca_opt_grouped', False)
+        clients[client_id]._fedhca_backbone_key = key
     if not task_has_new_data or t < expo:
         clients[client_id].train_dataset.getTrainData(classes=None, new_class_id=clients[client_id].recent_full_class, exemplar_set=clients[client_id].exemplar_set, exemplar_label_set=clients[client_id].exemplar_label_set, new_class_indices=clients[client_id].recent_full_indices)
         sampler = None
@@ -323,9 +323,9 @@ def local_train(clients, client_id, class_id, model_old, global_round, task_glob
                     sampler = _maybe_build_balanced_sampler(labels_arr, new_class_id=class_id, new_boost=new_class_boost)
         clients[client_id].train_loader = DataLoader(clients[client_id].train_dataset, batch_size=args.batch_size, shuffle=sampler is None, sampler=sampler, num_workers=4)
     IL_eff = IL_method
-    if ablate_local_plain_train and IL_eff == 'fedhcca':
+    if ablate_local_plain_train and IL_eff == 'fedhca':
         IL_eff = None
-    if IL_eff == 'fedhcca':
+    if IL_eff == 'fedhca':
         if getattr(args, 'dataset', '') == 'isic2019':
             lr0 = [0.0003, 0.0002, 0.0001, 0.0001]
             base_lr_old = 5e-05
@@ -345,8 +345,8 @@ def local_train(clients, client_id, class_id, model_old, global_round, task_glob
             if stage < len(lr0):
                 if clients[client_id].last_lr_stage != stage or clients[client_id].optimizer is None:
                     lr_head = float(lr0[stage])
-                    if enable_fedhcca_tweaks and use_backbone_lowlr and (not freeze_backbone):
-                        _ensure_sgd_fedhcca_grouped(clients[client_id], lr_head=lr_head, lr_backbone=lr_head * float(lowlr_scale))
+                    if enable_fedhca_tweaks and use_backbone_lowlr and (not freeze_backbone):
+                        _ensure_sgd_fedhca_grouped(clients[client_id], lr_head=lr_head, lr_backbone=lr_head * float(lowlr_scale))
                     else:
                         _ensure_sgd_and_set_lr(clients[client_id], lr_head)
                     clients[client_id].last_lr_stage = stage
@@ -400,13 +400,13 @@ def local_train(clients, client_id, class_id, model_old, global_round, task_glob
     local_client_prototypes = None
     if client_prototypes is not None:
         local_client_prototypes = client_prototypes[client_id]
-    new_loss_weight = float(getattr(args, 'fedhcca_new_loss_weight', 1.0))
-    protect_new_head = bool(int(getattr(args, 'fedhcca_protect_new_head', 1)))
-    protect_recent_old_head = bool(int(getattr(args, 'fedhcca_protect_recent_old_head', 1)))
-    recent_old_weight = float(getattr(args, 'fedhcca_recent_old_weight', 0.0))
-    freeze_past_new_rows_grad = bool(int(getattr(args, 'fedhcca_freeze_past_new_rows_grad', 0)))
-    bn_policy = int(getattr(args, 'fedhcca_freeze_bn', 1))
-    if not enable_fedhcca_tweaks or bn_policy <= 0:
+    new_loss_weight = float(getattr(args, 'fedhca_new_loss_weight', 1.0))
+    protect_new_head = bool(int(getattr(args, 'fedhca_protect_new_head', 1)))
+    protect_recent_old_head = bool(int(getattr(args, 'fedhca_protect_recent_old_head', 1)))
+    recent_old_weight = float(getattr(args, 'fedhca_recent_old_weight', 0.0))
+    freeze_past_new_rows_grad = bool(int(getattr(args, 'fedhca_freeze_past_new_rows_grad', 0)))
+    bn_policy = int(getattr(args, 'fedhca_freeze_bn', 1))
+    if not enable_fedhca_tweaks or bn_policy <= 0:
         freeze_bn_stats = False
     elif bn_policy == 1:
         freeze_bn_stats = bool(freeze_backbone)
@@ -414,8 +414,8 @@ def local_train(clients, client_id, class_id, model_old, global_round, task_glob
         freeze_bn_stats = bool(freeze_backbone) or not bool(is_exposed_train)
     else:
         freeze_bn_stats = True
-    if aggregator != 'fedhcca' or ablate_local_plain_train:
-        plain_aggregator = aggregator if aggregator != 'fedhcca' else 'fedavg'
+    if aggregator != 'fedhca' or ablate_local_plain_train:
+        plain_aggregator = aggregator if aggregator != 'fedhca' else 'fedavg'
         plain_IL = IL_method if not ablate_local_plain_train else None
         clients[client_id].train_compare(global_round=global_round, task_global_round=task_global_round, model_old=model_old, client_id=client_id, model_g=model_g, aggregator=plain_aggregator, IL_method=plain_IL, ewc_pack=ewc_pack)
     else:
@@ -441,7 +441,7 @@ def local_train(clients, client_id, class_id, model_old, global_round, task_glob
                 pre = param.detach().cpu().clone()
             local_grad[name] = param.detach().cpu() - pre
     if t == 9:
-        if IL_method == 'fedhcca' or IL_method == 'iCaRL':
+        if IL_method == 'fedhca' or IL_method == 'iCaRL':
             clients[client_id].exemplar_update_set(global_prototypes=global_prototypes, global_round=global_round, new_class_indices=clients[client_id].new_class_indices, new_class_id=clients[client_id].current_class, IL_method=IL_method)
         if clients[client_id].current_class not in clients[client_id].old_classes:
             clients[client_id].old_classes.append(clients[client_id].current_class)
@@ -781,23 +781,23 @@ def cluster_and_aggregate(new_class_id, models, client_prototypes, ref_model, cl
         if mu > 0:
             global_model[Wk][new_class_id] = (1.0 - mu) * global_model[Wk][new_class_id] + mu * w_new_mix[Wk][new_class_id]
             global_model[bk][new_class_id] = (1.0 - mu) * global_model[bk][new_class_id] + mu * w_new_mix[bk][new_class_id]
-    if getattr(args, 'method', None) == 'FedHCCA':
+    if getattr(args, 'method', None) == 'FedHCA':
         if w_new_mix is not None and Wk in global_model and (Wk in w_new_mix):
             if int(new_class_id) < int(global_model[Wk].shape[0]):
                 global_model[Wk][new_class_id] = w_new_mix[Wk][new_class_id].clone()
                 if bk in global_model and bk in w_new_mix and (int(new_class_id) < int(global_model[bk].shape[0])):
                     global_model[bk][new_class_id] = w_new_mix[bk][new_class_id].clone()
-        if int(getattr(args, 'fedhcca_protect_past_new_rows', 1)) == 1:
+        if int(getattr(args, 'fedhca_protect_past_new_rows', 1)) == 1:
             base_cls = int(getattr(args, 'baseclass', 0))
             max_old_new = int(new_class_id) - 1
             protected = 0
             locked = 0
-            beta = float(getattr(args, 'fedhcca_protect_past_new_beta', 0.3))
+            beta = float(getattr(args, 'fedhca_protect_past_new_beta', 0.3))
             beta = 0.0 if beta < 0 else 1.0 if beta > 1.0 else beta
-            min_support = int(getattr(args, 'fedhcca_protect_past_new_min_support', 2))
+            min_support = int(getattr(args, 'fedhca_protect_past_new_min_support', 2))
             if min_support < 1:
                 min_support = 1
-            min_samples = int(getattr(args, 'fedhcca_protect_past_new_min_samples', 0))
+            min_samples = int(getattr(args, 'fedhca_protect_past_new_min_samples', 0))
             if min_samples < 0:
                 min_samples = 0
             if Wk in global_model and max_old_new >= base_cls:
@@ -850,8 +850,8 @@ def cluster_and_aggregate(new_class_id, models, client_prototypes, ref_model, cl
                 pass
     if w_new_mix is not None and 'fc.weight' in w_new_mix:
         cos = torch.nn.functional.cosine_similarity(global_model['fc.weight'][new_class_id].flatten(), w_new_mix['fc.weight'][new_class_id].flatten(), dim=0).item()
-    if getattr(args, 'method', None) == 'FedHCCA':
-        wa_mode = int(getattr(args, 'fedhcca_weight_align_new_row', 0))
+    if getattr(args, 'method', None) == 'FedHCA':
+        wa_mode = int(getattr(args, 'fedhca_weight_align_new_row', 0))
         if wa_mode in (1, 2):
             Wk, bk = ('fc.weight', 'fc.bias')
             if Wk in global_model and int(new_class_id) < int(global_model[Wk].shape[0]) and (int(new_class_id) > 0):
@@ -874,7 +874,7 @@ def cluster_and_aggregate(new_class_id, models, client_prototypes, ref_model, cl
                             return (float(nrm), float(sc))
                         if wa_mode == 1:
                             new_norm_before, scale = _align_row(int(new_class_id))
-                            bias_scale = float(getattr(args, 'fedhcca_new_row_bias_scale', 1.0))
+                            bias_scale = float(getattr(args, 'fedhca_new_row_bias_scale', 1.0))
                             if bk in global_model and int(new_class_id) < int(global_model[bk].shape[0]) and (bias_scale != 1.0):
                                 global_model[bk][int(new_class_id)] = global_model[bk][int(new_class_id)] * bias_scale
                             try:
@@ -887,7 +887,7 @@ def cluster_and_aggregate(new_class_id, models, client_prototypes, ref_model, cl
                                 out = _align_row(int(rid))
                                 if out is not None:
                                     aligned += 1
-                            bias_scale = float(getattr(args, 'fedhcca_new_row_bias_scale', 1.0))
+                            bias_scale = float(getattr(args, 'fedhca_new_row_bias_scale', 1.0))
                             if bk in global_model and int(new_class_id) < int(global_model[bk].shape[0]) and (bias_scale != 1.0):
                                 global_model[bk][int(new_class_id)] = global_model[bk][int(new_class_id)] * bias_scale
                             try:
@@ -916,7 +916,7 @@ def cluster_and_aggregate(new_class_id, models, client_prototypes, ref_model, cl
     shrink_new = delta_g / (mean_new + 1e-12) if mean_new > 0 else float('inf')
     shrink_old = delta_g / (mean_old + 1e-12) if mean_old > 0 else float('inf')
     _print_recent_old_probe(new_class_id, models, client_prototypes, ref_model, client_weights, num_clients)
-    if getattr(args, 'method', None) == 'FedHCCA':
+    if getattr(args, 'method', None) == 'FedHCA':
         ema = float(getattr(args, 'server_ema', 0.0))
         ema_fc_new = float(getattr(args, 'server_ema_fc_new', 0.0))
         if ema > 0.0 or ema_fc_new > 0.0:

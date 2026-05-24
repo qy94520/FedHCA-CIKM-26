@@ -1,11 +1,11 @@
-# FedHCCA
+# FedHCA
 
-This repository contains the anonymized implementation for the main federated class-incremental learning experiments of FedHCCA.
+This repository contains the anonymized implementation for the main federated class-incremental learning experiments of FedHCA.
 
 ## Contents
 
 - `src/fl_main.py`: main experiment entry point.
-- `src/FedHCCA.py`: client-side training and continual-learning components.
+- `src/FedHCA.py`: client-side training and continual-learning components.
 - `src/Fed_utils.py`: federated aggregation, evaluation, and utility functions.
 - `src/iCIFAR100.py`: CIFAR-100, CIFAR-10, and SVHN incremental dataset wrappers.
 - `src/ResNet.py`, `src/myNetwork.py`, `src/backbone_factory.py`: model definitions.
