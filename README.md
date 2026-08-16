@@ -1,6 +1,7 @@
 # FedHCA
 
-Official implementation for our CIKM 2026 paper: FedHCA: Hierarchical Contribution-Aware Aggregation for Asynchronous Federated Class-Incremental Learning
+Official implementation for our CIKM 2026 paper: 
+FedHCA: Hierarchical Contribution-Aware Aggregation for Asynchronous Federated Class-Incremental Learning
 
 ## Contents
 
