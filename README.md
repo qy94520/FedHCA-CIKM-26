@@ -1,6 +1,6 @@
 # FedHCA
 
-This repository contains the anonymized implementation for the main federated class-incremental learning experiments of FedHCA.
+Official implementation for our CIKM 2026 paper: FedHCA: Hierarchical Contribution-Aware Aggregation for Asynchronous Federated Class-Incremental Learning
 
 ## Contents
 
